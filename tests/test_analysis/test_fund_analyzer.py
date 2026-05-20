@@ -1,0 +1,26 @@
+"""Test fund analyzer."""
+
+import pandas as pd
+from analysis.agents.fund_analyzer import analyze_fund, calc_sharpe_ratio, calc_max_drawdown
+
+
+def test_calc_sharpe_ratio():
+    returns = pd.Series([0.01, 0.02, -0.01, 0.015, 0.005])
+    sharpe = calc_sharpe_ratio(returns, risk_free=0.03)
+    assert isinstance(sharpe, float)
+
+
+def test_calc_max_drawdown():
+    nav = pd.Series([1.0, 1.1, 1.05, 1.2, 1.15, 1.25])
+    mdd = calc_max_drawdown(nav)
+    assert mdd > 0
+    # expanding max drawdowns:
+    #   peak=1.1, trough=1.05 => (1.05-1.1)/1.1 = -4.55%
+    #   peak=1.2, trough=1.15 => (1.15-1.2)/1.2 = -4.17%
+    # The biggest drawdown is 4.55% (from 1.1 to 1.05)
+    assert round(mdd, 2) == 4.55
+
+
+def test_calc_max_drawdown_flat():
+    nav = pd.Series([1.0, 1.0, 1.0])
+    assert calc_max_drawdown(nav) == 0.0
