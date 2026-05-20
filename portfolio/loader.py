@@ -54,12 +54,15 @@ def _parse_csv(fileobj: TextIOBase) -> list[Position]:
             }
             market_str = market_map.get(market_str, market_str)
 
+            market_price = float(row["market_price"]) if row.get("market_price", "").strip() else 0.0
+
             pos = Position(
                 symbol=row["symbol"].strip(),
                 name=row["name"].strip(),
                 asset_type=AssetType(row["asset_type"].strip().lower()),
                 shares=float(row["shares"]),
                 cost_price=float(row["cost_price"]),
+                market_price=market_price,
                 market=MarketType(market_str),
                 currency=row.get("currency", "CNY").strip().upper(),
             )
