@@ -1,5 +1,6 @@
 """分析结果数据模型"""
 
+from typing import Optional
 from pydantic import BaseModel, Field
 from analysis.models.holdings import HoldingDetail, SectorExposure
 
@@ -10,8 +11,8 @@ class ETFAnalysisResult(BaseModel):
     name: str
     tracking_error: float = Field(default=0.0, description="跟踪偏离年化标准差(%)")
     expense_ratio: float = Field(default=0.0, description="管理费率(%)")
-    bid_ask_spread: float = Field(default=0.0, description="买卖价差(bp)")
-    premium_discount: float = Field(default=0.0, description="折溢价率(%)")
+    bid_ask_spread: Optional[float] = Field(default=None, description="买卖价差(bp)")
+    premium_discount: Optional[float] = Field(default=None, description="折溢价率(%)")
     daily_volume: float = Field(default=0, description="日均成交量(元)")
     nav_price: float = Field(default=0.0, description="最新净值")
     holdings: list[HoldingDetail] = Field(default_factory=list)

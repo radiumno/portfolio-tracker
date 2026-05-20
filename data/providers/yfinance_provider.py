@@ -78,7 +78,9 @@ class YFinanceProvider(BaseDataProvider):
             holdings = ticker.major_holders
             if holdings is None or holdings.empty:
                 # Try top holdings
-                top = ticker.top_holdings or ticker.institutional_holders
+                top = ticker.top_holdings
+                if top is None or top.empty:
+                    top = ticker.institutional_holders
                 if top is None or top.empty:
                     return None
                 holdings = top
