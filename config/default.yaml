@@ -1,0 +1,16 @@
+analysis:
+  risk_free_rate: 0.03
+  confidence_threshold: 0.6
+  max_debate_rounds: 2
+
+cache:
+  ttl_hours: 4
+  backend: sqlite
+
+data:
+  providers:
+    cn: akshare
+    global: yfinance
+
+portfolio:
+  default_csv_encoding: utf-8

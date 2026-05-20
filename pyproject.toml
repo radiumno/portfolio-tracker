@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta:__legacy__"
+
+[project]
+name = "fund-analyzer"
+version = "0.1.0"
+description = "基金/ETF 智能分析系统 — 多智能体辩论 + 投资大师理论分析"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "pyyaml>=6.0",
+    "typer>=0.9",
+    "rich>=13.0",
+    "httpx>=0.24",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-asyncio>=0.21",
+]
+cn = ["akshare>=1.0"]
+global = ["yfinance>=0.2"]
+all = ["akshare>=1.0", "yfinance>=0.2"]
+web = ["streamlit>=1.28", "fastapi>=0.104", "uvicorn>=0.24"]
+mcp = ["mcp>=0.1"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["config*", "portfolio*", "analysis*", "data*", "cli*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
