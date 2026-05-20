@@ -1,8 +1,10 @@
 """Test portfolio CSV loader."""
 
-import csv
 import io
+import os
 import tempfile
+
+import pytest
 from portfolio.models import Position, AssetType, MarketType
 from portfolio.loader import load_positions_from_csv
 
@@ -38,13 +40,20 @@ def test_load_file_path():
         positions = load_positions_from_csv(tmp_path)
         assert len(positions) == 2
     finally:
-        import os
         os.unlink(tmp_path)
 
 
 def test_load_missing_required_column():
     bad_csv = "symbol,name,shares,cost_price\n510050,test,100,1.0\n"
     buf = io.StringIO(bad_csv)
-    import pytest
     with pytest.raises(ValueError, match="缺少必需列"):
         load_positions_from_csv(buf)
+
+
+def test_load_chinese_headers():
+    """CSV with Chinese column names should work via COLUMN_MAP."""
+    csv_data = "代码,名称,类型,份额,成本价,市场,币种\n510050,华夏上证50ETF,etf,1000,2.5,cn,CNY\n"
+    buf = io.StringIO(csv_data)
+    positions = load_positions_from_csv(buf)
+    assert len(positions) == 1
+    assert positions[0].symbol == "510050"

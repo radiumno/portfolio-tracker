@@ -65,6 +65,6 @@ def _parse_csv(fileobj: TextIOBase) -> list[Position]:
             )
             positions.append(pos)
         except (ValueError, KeyError) as e:
-            raise ValueError(f"解析行 '{row.get('symbol', '?')}' 失败: {e}")
+            raise ValueError(f"解析行 '{row.get('symbol', '?')}' 失败: {e}") from e
 
     return positions
