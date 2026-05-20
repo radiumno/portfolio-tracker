@@ -11,6 +11,7 @@ from analysis.agents.concentration import (
     calc_sector_concentration, detect_concentration_risks,
 )
 from analysis.agents.stress_test import run_stress_test
+from analysis.agents.debate import run_debate
 
 __all__ = [
     "analyze_etf", "calc_tracking_error", "calc_concentration",
@@ -22,4 +23,5 @@ __all__ = [
     "calc_portfolio_hhi", "calc_effective_n", "calc_top_n_concentration",
     "calc_sector_concentration", "detect_concentration_risks",
     "run_stress_test",
+    "run_debate",
 ]

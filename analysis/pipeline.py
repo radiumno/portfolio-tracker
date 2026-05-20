@@ -6,7 +6,7 @@ from portfolio.models import Portfolio, Position, MarketType
 from analysis.models.analysis import ETFAnalysisResult, FundAnalysisResult
 from analysis.models.risk import PortfolioRiskResult, RiskMetrics
 from analysis.models.correlation import CorrelationMatrix
-from analysis.models.theory import TheoryResult, StressTestResult
+from analysis.models.theory import TheoryResult, StressTestResult, DebateResult
 from analysis.models.collected_data import CollectedData, AssetCollectedData
 from analysis.agents.etf_analyzer import analyze_etf, calc_concentration
 from analysis.agents.fund_analyzer import analyze_fund
@@ -32,6 +32,7 @@ class AnalysisContext:
         self.correlation_result: Optional[CorrelationMatrix] = None
         self.stress_test_result: Optional[StressTestResult] = None
         self.theory_results: dict[str, list[TheoryResult]] = {}
+        self.debate_results: dict[str, DebateResult] = {}
         self.phase_outputs: dict[str, dict] = {}
 
     @property
@@ -233,10 +234,23 @@ class AnalysisPipeline:
             },
         }
 
-    # ── P5: 辩论（预留） ──────────────────────────────────────────
+    # ── P5: AI 辩论 ──────────────────────────────────────────────
 
     def _phase_debate(self, ctx: AnalysisContext) -> dict:
-        return {"status": "not_implemented", "note": "需要 LLM 集成"}
+        """P5: 3 阶段多智能体辩论（结构/调仓/优先级）"""
+        from analysis.agents.debate import run_debate
+
+        ctx.debate_results = run_debate(ctx.positions)
+
+        s1 = ctx.debate_results.get("structure")
+        no_key = s1 and s1.decision == "skip"
+
+        return {
+            "status": "skipped" if no_key else "done",
+            "note": "未配置 API Key" if no_key else "辩论完成",
+            "stages": {k: {"consensus": v.final_consensus[:100], "confidence": v.confidence}
+                       for k, v in ctx.debate_results.items()},
+        }
 
     # ── P6: 风险评估 ──────────────────────────────────────────────
 
@@ -326,8 +340,17 @@ class AnalysisPipeline:
             risk_score = ctx.phase_outputs["P6"].get("risk_score", 100)
             risk_level = ctx.phase_outputs["P6"].get("risk_level", "低")
 
-        # 综合评分 = 理论评分 * 0.6 + 风险评分 * 0.4
-        composite_score = theory_avg_score * 0.6 + risk_score * 0.4
+        # 辩论调整：如果辩论给出高置信度决策，小幅调整评分
+        debate_boost = 0
+        if ctx.debate_results:
+            priority = ctx.debate_results.get("priority")
+            if priority and priority.confidence > 0.7:
+                debate_boost = 5
+            elif priority and priority.confidence > 0.5:
+                debate_boost = 2
+
+        # 综合评分 = 理论评分 * 0.6 + 风险评分 * 0.4 + 辩论调整
+        composite_score = theory_avg_score * 0.6 + risk_score * 0.4 + debate_boost
 
         # 操作建议逻辑
         if composite_score >= 70 and risk_level in ("低", "中"):

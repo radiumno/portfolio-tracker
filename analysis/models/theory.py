@@ -35,3 +35,28 @@ class StressTestResult(BaseModel):
     worst_case_loss: float = Field(default=0.0, description="最坏场景损失(%)")
     resilient_assets: list[str] = Field(default_factory=list, description="在所有场景中跌幅最小的资产")
     vulnerable_assets: list[str] = Field(default_factory=list, description="在压力场景中跌幅最大的资产")
+
+
+class DebateArgument(BaseModel):
+    """辩论论点"""
+    agent_name: str = Field(description="发言智能体名称")
+    position: str = Field(description="立场：赞成/反对/中立")
+    content: str = Field(description="论证内容")
+    confidence: float = Field(default=0.5, ge=0, le=1, description="置信度")
+
+
+class DebateRound(BaseModel):
+    """一轮辩论"""
+    round_number: int
+    arguments: list[DebateArgument] = Field(default_factory=list)
+    consensus: Optional[str] = Field(default=None, description="本轮共识")
+    summary: str = Field(default="", description="本轮摘要")
+
+
+class DebateResult(BaseModel):
+    """辩论引擎输出结果"""
+    topic: str
+    rounds: list[DebateRound] = Field(default_factory=list)
+    final_consensus: str = Field(default="", description="最终共识")
+    decision: str = Field(default="", description="最终决策")
+    confidence: float = Field(default=0.0, ge=0, le=1, description="决策置信度")

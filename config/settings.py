@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +25,13 @@ class Settings(BaseSettings):
 
     # 缓存
     cache_ttl_hours: int = 4
+
+    # DeepSeek LLM
+    deepseek_api_key: Optional[str] = None
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model: str = "deepseek-chat"  # Flash 标准模型（非 R1 推理模型）
+    deepseek_max_tokens: int = 4096
+    deepseek_temperature: float = 0.7
 
     model_config = SettingsConfigDict(env_prefix="FUND_", env_file=".env")
 
