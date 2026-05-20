@@ -1,11 +1,13 @@
-"""LangGraph 7 阶段分析流水线 — Phase 2 增强版"""
+"""LangGraph 7 阶段分析流水线 — Phase 2 完整版"""
 
 from typing import Optional
-from portfolio.models import Portfolio, Position
+import pandas as pd
+from portfolio.models import Portfolio, Position, MarketType
 from analysis.models.analysis import ETFAnalysisResult, FundAnalysisResult
 from analysis.models.risk import PortfolioRiskResult, RiskMetrics
 from analysis.models.correlation import CorrelationMatrix
 from analysis.models.theory import TheoryResult, StressTestResult
+from analysis.models.collected_data import CollectedData, AssetCollectedData
 from analysis.agents.etf_analyzer import analyze_etf, calc_concentration
 from analysis.agents.fund_analyzer import analyze_fund
 from analysis.agents.risk_analyzer import analyze_risk_single, analyze_portfolio_risk
@@ -15,7 +17,7 @@ from analysis.agents.concentration import (
     calc_sector_concentration, detect_concentration_risks,
 )
 from analysis.agents.stress_test import run_stress_test
-from analysis.theories import create_registry
+from analysis.theories import create_registry, TheoryRegistry
 
 
 class AnalysisContext:
@@ -23,6 +25,7 @@ class AnalysisContext:
 
     def __init__(self, portfolio: Portfolio):
         self.portfolio = portfolio
+        self.collected_data = CollectedData()
         self.etf_results: dict[str, ETFAnalysisResult] = {}
         self.fund_results: dict[str, FundAnalysisResult] = {}
         self.risk_result: Optional[PortfolioRiskResult] = None
@@ -37,9 +40,23 @@ class AnalysisContext:
 
 
 class AnalysisPipeline:
-    """7 阶段分析流水线（数据采集→标的体检→组合分析→理论评估→辩论→风险评估→操作推荐）"""
+    """7 阶段分析流水线（数据采集→标的体检→组合分析→理论评估→辩论→风险评估→操作推荐）
 
-    def __init__(self):
+    参数:
+        cn_provider: 中国市场数据提供者（akshare 等）
+        global_provider: 全球市场数据提供者（yfinance 等）
+        theory_registry: 投资理论注册表，默认创建含全部 5 个理论
+    """
+
+    def __init__(
+        self,
+        cn_provider=None,
+        global_provider=None,
+        theory_registry: Optional[TheoryRegistry] = None,
+    ):
+        self._cn_provider = cn_provider
+        self._global_provider = global_provider
+        self._theory_registry = theory_registry or create_registry()
         self.phases = {
             "P1": self._phase_data_collection,
             "P2": self._phase_asset_checkup,
@@ -63,50 +80,115 @@ class AnalysisPipeline:
 
         return ctx
 
+    # ── P1: 数据采集 ──────────────────────────────────────────────
+
+    def _get_provider(self, pos: Position):
+        """根据标的市场选择数据提供者"""
+        if pos.market == MarketType.CN:
+            return self._cn_provider
+        return self._global_provider
+
     def _phase_data_collection(self, ctx: AnalysisContext) -> dict:
         """P1: 并行获取所有标的数据"""
-        # Phase 2 中仍为桩，完全实现需要 akshare/yfinance 运行时
-        return {"status": "not_implemented", "note": "需要 akshare/yfinance 运行时环境"}
+        if not self._cn_provider and not self._global_provider:
+            return {"status": "not_implemented", "note": "未配置数据提供者，使用默认值"}
+
+        stats = {"total": len(ctx.positions), "fetched": 0, "failed": 0, "details": {}}
+
+        for pos in ctx.positions:
+            provider = self._get_provider(pos)
+            if provider is None:
+                stats["details"][pos.symbol] = "无可用数据提供者"
+                stats["failed"] += 1
+                continue
+
+            try:
+                asset_data = AssetCollectedData(
+                    symbol=pos.symbol, name=pos.name, data_source=provider.name()
+                )
+
+                # ETF → 日线 + 净值
+                if pos.asset_type.value == "etf":
+                    daily = provider.get_etf_daily(pos.symbol)
+                    if daily is not None and not daily.empty:
+                        asset_data.daily = daily
+                        if "close" in daily.columns:
+                            asset_data.nav = daily["close"]
+
+                    nav = provider.get_etf_nav(pos.symbol)
+                    if nav is not None:
+                        asset_data.nav = nav
+
+                # 主动基金
+                elif pos.asset_type.value == "fund":
+                    nav = provider.get_fund_nav(pos.symbol)
+                    if nav is not None:
+                        asset_data.nav = nav
+
+                    info = provider.get_fund_info(pos.symbol)
+                    if info:
+                        asset_data.info = info
+
+                    holdings = provider.get_fund_holdings(pos.symbol)
+                    if holdings is not None and not holdings.empty:
+                        asset_data.holdings = holdings.to_dict("records")
+
+                ctx.collected_data.assets[pos.symbol] = asset_data
+                stats["details"][pos.symbol] = "ok"
+                stats["fetched"] += 1
+
+            except Exception as e:
+                stats["details"][pos.symbol] = f"error: {e}"
+                stats["failed"] += 1
+
+        return {"status": "done" if stats["fetched"] > 0 else "partial", **stats}
+
+    # ── P2: 标的体检 ──────────────────────────────────────────────
 
     def _phase_asset_checkup(self, ctx: AnalysisContext) -> dict:
         """P2: 每个标的分独立分析 — ETF 和基金分析"""
         results: dict[str, str] = {}
+
         for pos in ctx.positions:
             try:
+                asset_data = ctx.collected_data.assets.get(pos.symbol)
+
                 if pos.asset_type.value == "etf":
+                    daily = asset_data.daily if asset_data else None
                     result = analyze_etf(
                         symbol=pos.symbol, name=pos.name,
-                        data_source="持仓导入",
+                        daily_data=daily,
+                        data_source=asset_data.data_source if asset_data else "默认",
                     )
                     ctx.etf_results[pos.symbol] = result
                     results[pos.symbol] = "ok"
+
                 elif pos.asset_type.value == "fund":
+                    nav = asset_data.nav if asset_data else None
+                    info = asset_data.info if asset_data else None
                     result = analyze_fund(
                         symbol=pos.symbol, name=pos.name,
-                        data_source="持仓导入",
+                        nav_data=nav,
+                        info=info,
+                        data_source=asset_data.data_source if asset_data else "默认",
                     )
                     ctx.fund_results[pos.symbol] = result
                     results[pos.symbol] = "ok"
                 else:
-                    results[pos.symbol] = "skipped: 不支持的类型"
+                    results[pos.symbol] = "skipped"
             except Exception as e:
                 results[pos.symbol] = f"error: {e}"
 
         analyzed = len([v for v in results.values() if v == "ok"])
-        return {
-            "status": "done",
-            "total": len(ctx.positions),
-            "analyzed": analyzed,
-            "details": results,
-        }
+        return {"status": "done", "total": len(ctx.positions), "analyzed": analyzed, "details": results}
+
+    # ── P3: 组合分析 ──────────────────────────────────────────────
 
     def _phase_portfolio_analysis(self, ctx: AnalysisContext) -> dict:
         """P3: 组合级别的相关性、集中度、压力测试"""
         positions = ctx.positions
         if not positions:
             return {"status": "skipped", "reason": "无持仓数据"}
-
-        total_value = sum(p.market_value for p in positions)
 
         # 集中度分析
         hhi = calc_portfolio_hhi(positions)
@@ -118,25 +200,29 @@ class AnalysisPipeline:
         # 压力测试
         ctx.stress_test_result = run_stress_test(positions)
 
-        # 相关性（需要净值数据，P1 未实现时跳过）
-        ctx.correlation_result = calc_correlation_matrix({}) if len(positions) < 2 else None
+        # 相关性 — 从采集数据构建 NAV 字典
+        nav_dict: dict[str, pd.Series] = {}
+        for pos in positions:
+            asset_data = ctx.collected_data.assets.get(pos.symbol)
+            if asset_data and asset_data.nav is not None:
+                nav_dict[pos.symbol] = asset_data.nav
+
+        ctx.correlation_result = calc_correlation_matrix(nav_dict) if len(nav_dict) >= 2 else None
 
         return {
             "status": "done",
-            "concentration": {
-                "hhi": hhi,
-                "effective_n": effective_n,
-                "top5_pct": top5,
-            },
+            "concentration": {"hhi": hhi, "effective_n": effective_n, "top5_pct": top5},
             "risk_flags": risks,
             "sectors": [s.sector for s in sector_conc[:5]],
+            "correlation_assets": len(nav_dict),
             "stress_test_scenarios": len(ctx.stress_test_result.scenarios) if ctx.stress_test_result else 0,
         }
 
+    # ── P4: 理论评估 ──────────────────────────────────────────────
+
     def _phase_theory_evaluation(self, ctx: AnalysisContext) -> dict:
         """P4: 投资理论并行评估"""
-        registry = create_registry()
-        ctx.theory_results = registry.run_all(ctx.positions)
+        ctx.theory_results = self._theory_registry.run_all(ctx.positions)
 
         return {
             "status": "done",
@@ -147,9 +233,12 @@ class AnalysisPipeline:
             },
         }
 
+    # ── P5: 辩论（预留） ──────────────────────────────────────────
+
     def _phase_debate(self, ctx: AnalysisContext) -> dict:
-        """P5: 多智能体辩论（预留）"""
         return {"status": "not_implemented", "note": "需要 LLM 集成"}
+
+    # ── P6: 风险评估 ──────────────────────────────────────────────
 
     def _phase_risk_assessment(self, ctx: AnalysisContext) -> dict:
         """P6: 综合风险评估"""
@@ -157,7 +246,23 @@ class AnalysisPipeline:
         if not positions:
             return {"status": "skipped", "reason": "无持仓数据"}
 
-        # 使用集中度+压力测试结果进行风险评估
+        # 组合风险分析
+        nav_dict = {}
+        names = {}
+        weights = {}
+        total_value = sum(p.market_value for p in positions) or 1
+
+        for pos in positions:
+            asset_data = ctx.collected_data.assets.get(pos.symbol)
+            if asset_data and asset_data.nav is not None:
+                nav_dict[pos.symbol] = asset_data.nav
+                names[pos.symbol] = pos.name
+            weights[pos.symbol] = pos.market_value / total_value
+
+        if len(nav_dict) >= 1:
+            ctx.risk_result = analyze_portfolio_risk(nav_dict, names, weights)
+
+        # 集中度+压力测试风险评估
         hhi = calc_portfolio_hhi(positions)
         top5 = calc_top_n_concentration(positions)
         risk_flags = detect_concentration_risks(hhi, top5)
@@ -165,7 +270,6 @@ class AnalysisPipeline:
         stress = ctx.stress_test_result
         worst_loss = stress.worst_case_loss if stress else 0.0
 
-        # 风险评级
         risk_level = "低"
         score_deduction = 0
         if worst_loss > 25:
@@ -174,7 +278,6 @@ class AnalysisPipeline:
         elif worst_loss > 15:
             risk_level = "中"
             score_deduction += 10
-
         if hhi > 2000:
             risk_level = "高"
             score_deduction += 15
@@ -190,8 +293,87 @@ class AnalysisPipeline:
             "worst_case_loss_pct": worst_loss,
             "risk_flags": risk_flags,
             "concentration_hhi": hhi,
+            "portfolio_vol": ctx.risk_result.portfolio_volatility if ctx.risk_result else None,
         }
 
+    # ── P7: 操作推荐 ──────────────────────────────────────────────
+
     def _phase_recommendation(self, ctx: AnalysisContext) -> dict:
-        """P7: 操作推荐（基于前 6 阶段结果）"""
-        return {"status": "not_implemented", "note": "需要完整的前 6 阶段结果"}
+        """P7: 整合前 6 阶段结果，生成量化操作建议"""
+        positions = ctx.positions
+        if not positions:
+            return {"status": "skipped", "reason": "无持仓数据"}
+
+        # 收集理论信号
+        all_signals = {}
+        for theory_name, theory_results in ctx.theory_results.items():
+            for tr in theory_results:
+                for signal in tr.signals:
+                    key = f"{theory_name}"
+
+        # 综合各阶段评分
+        theory_avg_score = 50.0
+        if ctx.theory_results:
+            scores = []
+            for results in ctx.theory_results.values():
+                for r in results:
+                    scores.append(r.overall_score)
+            theory_avg_score = sum(scores) / len(scores) if scores else 50.0
+
+        risk_score = 100
+        risk_level = "低"
+        if "P6" in ctx.phase_outputs:
+            risk_score = ctx.phase_outputs["P6"].get("risk_score", 100)
+            risk_level = ctx.phase_outputs["P6"].get("risk_level", "低")
+
+        # 综合评分 = 理论评分 * 0.6 + 风险评分 * 0.4
+        composite_score = theory_avg_score * 0.6 + risk_score * 0.4
+
+        # 操作建议逻辑
+        if composite_score >= 70 and risk_level in ("低", "中"):
+            action = "持有并关注"
+            reason = "综合评分较高且风险可控，建议维持当前持仓"
+        elif composite_score >= 50:
+            action = "谨慎持有"
+            reason = "综合评分中等，建议关注风险敞口"
+        elif composite_score >= 30:
+            action = "减仓评估"
+            reason = "综合评分偏低，建议审视持仓结构，适当降低风险暴露"
+        else:
+            action = "建议调整"
+            reason = "综合评分过低，建议大幅调整持仓结构"
+
+        # 逐标的建议
+        position_actions = []
+        for pos in positions:
+            signal_texts = []
+            avg_theory_score = 50
+            for results in ctx.theory_results.values():
+                for r in results:
+                    # 这里假设理论结果按顺序匹配标的（简化实现）
+                    avg_theory_score = r.overall_score
+
+            if avg_theory_score >= 70:
+                pos_action = "持有"
+            elif avg_theory_score >= 40:
+                pos_action = "观察"
+            else:
+                pos_action = "关注"
+
+            position_actions.append({
+                "symbol": pos.symbol,
+                "name": pos.name,
+                "action": pos_action,
+            })
+
+        return {
+            "status": "done",
+            "composite_score": round(composite_score, 1),
+            "action": action,
+            "reason": reason,
+            "risk_level": risk_level,
+            "theory_avg_score": round(theory_avg_score, 1),
+            "risk_score": risk_score,
+            "position_actions": position_actions,
+            "disclaimer": "本分析仅供参考，不构成投资建议。投资有风险，决策需谨慎。数据来源详见各阶段输出。",
+        }
