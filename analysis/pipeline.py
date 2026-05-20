@@ -16,7 +16,7 @@ class AnalysisContext:
 
 
 class AnalysisPipeline:
-    """7 阶段分析流水线"""
+    """7 阶段分析流水线（数据采集→标的体检→组合分析→理论评估→辩论→风险评估→操作推荐）"""
 
     def __init__(self):
         self.phases = {
@@ -32,7 +32,7 @@ class AnalysisPipeline:
     def run(self, portfolio: Portfolio, stages: Optional[list[str]] = None) -> AnalysisContext:
         """运行指定阶段的分析流水线。
 
-        Args:
+        参数:
             portfolio: 用户持仓
             stages: 要运行的阶段列表，默认全运行
         """

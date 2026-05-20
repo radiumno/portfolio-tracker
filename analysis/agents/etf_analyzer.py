@@ -33,7 +33,7 @@ def analyze_etf(
 ) -> ETFAnalysisResult:
     """执行 ETF 分析。
 
-    Args:
+    参数:
         symbol: ETF 代码
         name: ETF 名称
         daily_data: 日线数据（需含 close 列）

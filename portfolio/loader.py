@@ -44,7 +44,7 @@ def _parse_csv(fileobj: TextIOBase) -> list[Position]:
     for row in reader:
         try:
             market_str = row.get("market", "cn").lower()
-            # Map common market names
+            # 映射常见的市场名称
             market_map = {
                 "china": "cn",
                 "us": "us",

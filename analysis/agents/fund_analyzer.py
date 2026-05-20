@@ -36,7 +36,7 @@ def analyze_fund(
 ) -> FundAnalysisResult:
     """执行主动基金分析。
 
-    Args:
+    参数:
         symbol: 基金代码
         name: 基金名称
         nav_data: 净值时间序列
@@ -59,7 +59,7 @@ def analyze_fund(
         result.sharpe_ratio = calc_sharpe_ratio(returns)
         result.max_drawdown_1y = calc_max_drawdown(nav_data)
 
-        # Calculate returns for different periods
+        # 计算不同周期的收益率
         result.nav_return_1y = _calc_period_return(nav_data, 252)
         result.nav_return_3y = _calc_period_return(nav_data, 756)
 

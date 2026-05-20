@@ -1,4 +1,4 @@
-"""Test portfolio data models."""
+"""测试持仓数据模型"""
 
 from portfolio.models import Position, Portfolio, WatchlistItem, AssetType
 
@@ -70,7 +70,7 @@ def test_portfolio_add_multiple():
                   shares=200, cost_price=20, market_price=22, market="us")
     portfolio = Portfolio(positions=[p1, p2])
     portfolio.add_position(p1)
-    # After recalc: p1(1200) + p2(4400) + p1 again(1200) = 6800
+    # 重算后: p1(1200) + p2(4400) + p1 再次加入(1200) = 6800
     assert portfolio.total_value == 6800.0
 
 

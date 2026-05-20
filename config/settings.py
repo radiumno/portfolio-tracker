@@ -3,26 +3,26 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables / .env.
+    """从环境变量 /.env 文件加载的应用配置。
 
-    YAML configuration (``config/default.yaml``) is kept as reference
-    documentation for future phases; it is **not** read by this class yet.
+    YAML 配置（``config/default.yaml``）保留作为参考文档，
+    当前阶段暂未由此类读取。
     """
 
-    # Project paths
+    # 项目路径
     project_root: Path = Path(__file__).resolve().parent.parent
     data_cache_dir: Path = project_root / ".cache"
 
-    # Data providers
+    # 数据提供者
     data_provider_cn: str = "akshare"
     data_provider_global: str = "yfinance"
 
-    # Analysis defaults
+    # 分析默认值
     risk_free_rate: float = 0.03
     confidence_threshold: float = 0.6
     max_debate_rounds: int = 2
 
-    # Cache
+    # 缓存
     cache_ttl_hours: int = 4
 
     model_config = SettingsConfigDict(env_prefix="FUND_", env_file=".env")

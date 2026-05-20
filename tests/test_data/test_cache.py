@@ -1,5 +1,5 @@
 # tests/test_data/test_cache.py
-"""Test data provider interface"""
+"""测试数据提供者接口"""
 
 from data.base import BaseDataProvider, DataProviderError, ProviderRegistry
 
@@ -36,7 +36,7 @@ def test_provider_registry_unknown():
     registry = ProviderRegistry()
     try:
         registry.get("nonexistent")
-        assert False, "Should have raised"
+        assert False, "应该抛出异常"
     except DataProviderError:
         pass
 

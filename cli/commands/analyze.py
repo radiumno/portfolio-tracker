@@ -1,4 +1,4 @@
-"""analyze 子命令逻辑"""
+"""analyze 子命令业务逻辑"""
 
 from typing import Optional
 from rich.console import Console
@@ -14,12 +14,12 @@ def analyze_cmd(
     csv_path: str,
     stages: Optional[str] = None,
 ) -> None:
-    """加载持仓、显示摘要、运行分析流水线"""
+    """加载持仓 CSV、显示摘要表格、运行分析流水线"""
     positions = load_positions_from_csv(csv_path)
     portfolio = Portfolio(positions=positions)
     portfolio.recalc()
 
-    # 显示持仓摘要
+    # 显示持仓摘要表格
     table = Table(title=f"持仓分析 ({len(positions)} 只标的)")
     table.add_column("代码", style="cyan")
     table.add_column("名称")
@@ -35,7 +35,7 @@ def analyze_cmd(
     console.print(table)
     console.print(f"\n组合总市值: [bold]{portfolio.total_value:,.0f}[/bold]")
 
-    # 运行分析
+    # 运行分析流水线
     target_stages = stages.split(",") if stages else None
     pipeline = AnalysisPipeline()
     ctx = pipeline.run(portfolio, stages=target_stages)

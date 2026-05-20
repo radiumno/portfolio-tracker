@@ -1,4 +1,4 @@
-"""Test ETF analyzer."""
+"""测试 ETF 分析器"""
 
 import pandas as pd
 import numpy as np

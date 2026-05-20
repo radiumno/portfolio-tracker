@@ -53,7 +53,7 @@ class YFinanceProvider(BaseDataProvider):
             raise DataProviderError(f"获取 ETF 日线失败 {symbol}: {e}")
 
     def get_fund_nav(self, symbol: str) -> Optional[pd.Series]:
-        # yfinance 对主动基金支持有限，回退到 ETF 方式获取
+        # yfinance 对主动基金支持有限，回退到 ETF 接口获取
         return self.get_etf_nav(symbol)
 
     def get_fund_info(self, symbol: str) -> dict:
@@ -77,7 +77,7 @@ class YFinanceProvider(BaseDataProvider):
             ticker = yf.Ticker(symbol)
             holdings = ticker.major_holders
             if holdings is None or holdings.empty:
-                # Try top holdings
+                # 尝试获取前十大持仓
                 top = ticker.top_holdings
                 if top is None or top.empty:
                     top = ticker.institutional_holders

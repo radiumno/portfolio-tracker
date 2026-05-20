@@ -1,4 +1,4 @@
-"""Test portfolio CSV loader."""
+"""测试持仓 CSV 加载器"""
 
 import io
 import os
@@ -51,7 +51,7 @@ def test_load_missing_required_column():
 
 
 def test_load_chinese_headers():
-    """CSV with Chinese column names should work via COLUMN_MAP."""
+    """CSV 使用中文列名时应通过 COLUMN_MAP 正常加载"""
     csv_data = "代码,名称,类型,份额,成本价,市场,币种\n510050,华夏上证50ETF,etf,1000,2.5,cn,CNY\n"
     buf = io.StringIO(csv_data)
     positions = load_positions_from_csv(buf)
