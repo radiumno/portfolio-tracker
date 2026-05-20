@@ -1,0 +1,38 @@
+name: Bug 报告
+description: 提交问题报告帮助系统改进
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你提交 Bug 报告！请尽可能详细描述。
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug 描述
+      description: 发生了什么？预期应该发生什么？
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤
+      description: 如何复现这个问题？
+      placeholder: |
+        1. 执行 '...'
+        2. 输入 '....'
+        3. 看到错误
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志/输出
+      description: 请粘贴相关的错误信息或日志
+      render: shell
+  - type: input
+    id: data_source
+    attributes:
+      label: 数据源
+      description: 使用哪个数据源时出现问题？（akshare / yfinance / 不涉及）
