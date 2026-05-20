@@ -48,14 +48,13 @@ class Position(BaseModel):
             return 0.0
         return round(self.unrealized_pnl / self.cost_basis, 4)
 
-    @property
-    def weight(self) -> float:
-        """占组合权重（需在 Portfolio 中设置 total_value 后使用）"""
-        return 0.0
-
-
 class Portfolio(BaseModel):
-    """整个组合"""
+    """整个组合
+
+    注意：
+    - 持仓应通过 add_position() 方法修改，以自动触发市值重算。
+    - 直接修改 positions 列表不会触发重算，可能导致 total_value 不一致。
+    """
     positions: list[Position] = Field(default_factory=list)
     cash: float = Field(default=0.0, ge=0, description="现金余额")
     total_value: float = Field(default=0.0, ge=0, description="总市值")

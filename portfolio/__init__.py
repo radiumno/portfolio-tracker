@@ -1,3 +1,3 @@
-from portfolio.models import Position, WatchlistItem, AssetType
+from portfolio.models import Position, Portfolio, WatchlistItem, AssetType, MarketType
 
-__all__ = ["Position", "WatchlistItem", "AssetType"]
+__all__ = ["Position", "Portfolio", "WatchlistItem", "AssetType", "MarketType"]
