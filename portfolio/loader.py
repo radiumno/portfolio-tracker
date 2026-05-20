@@ -45,7 +45,13 @@ def _parse_csv(fileobj: TextIOBase) -> list[Position]:
         try:
             market_str = row.get("market", "cn").lower()
             # Map common market names
-            market_map = {"china": "cn", "us": "us", "usa": "us", "hongkong": "hk", "hong kong": "hk"}
+            market_map = {
+                "china": "cn",
+                "us": "us",
+                "usa": "us",
+                "hongkong": "hk",
+                "hong kong": "hk",
+            }
             market_str = market_map.get(market_str, market_str)
 
             pos = Position(
