@@ -61,9 +61,9 @@ class Portfolio(BaseModel):
 
     def add_position(self, position: Position) -> None:
         self.positions.append(position)
-        self._recalc()
+        self.recalc()
 
-    def _recalc(self) -> None:
+    def recalc(self) -> None:
         self.total_value = sum(p.market_value for p in self.positions) + self.cash
 
 
